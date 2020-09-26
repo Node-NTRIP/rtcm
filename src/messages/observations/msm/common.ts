@@ -26,7 +26,7 @@ import {
     UInt
 } from '../../../decode-encode';
 import { RtcmMessage } from '../../../rtcm';
-import { BitStream } from '@ntrip/bit-buffer';
+import { BitStream } from 'bit-buffer-ts';
 import {
     Msm1SatelliteData,
     Msm2SatelliteData,

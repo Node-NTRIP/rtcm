@@ -16,7 +16,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BitStream } from '@ntrip/bit-buffer';
+import { BitStream } from 'bit-buffer-ts';
 import { constructPropertiesKey, FunctionKeys } from './utils';
 import { DecoderEncoder, getDecoderEncoder } from './decode-encode';
 import { CRC24Q_TABLE } from './crc';

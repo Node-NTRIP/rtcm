@@ -17,7 +17,7 @@
  */
 
 import 'reflect-metadata';
-import { BitStream } from '@ntrip/bit-buffer';
+import { BitStream } from 'bit-buffer-ts';
 
 class Coder {
     private static readonly definitions: any[] = [];

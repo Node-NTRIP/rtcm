@@ -16,7 +16,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { constructPropertiesKey, constructWithPropertiesPlus } from '../../../utils';
+import {
+    constructPropertiesKey,
+    constructWithPropertiesInternalGuardPlus
+} from '../../../utils';
 import { DF, IfInstanceOf, Int, UInt } from '../../../decode-encode';
 import { SPEED_OF_LIGHT } from '../../../constants';
 import {
@@ -31,10 +34,12 @@ import {
 } from './signal';
 
 export abstract class MsmSatelliteData<T extends MsmSignalData> {
-    id!: number;
-    signals!: T[];
+    readonly id!: number;
+    readonly signals!: readonly T[];
 
-    static construct = constructWithPropertiesPlus;
+    constructor(_internalGuard: never) {}
+
+    static construct = constructWithPropertiesInternalGuardPlus;
 }
 
 export abstract class Msm123SatelliteData<T extends Msm1SignalData | Msm2SignalData | Msm3SignalData> extends MsmSatelliteData<T> {

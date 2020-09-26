@@ -158,3 +158,9 @@ input                                      // Stream of raw data
 
 ## Testing
 `npm test`
+
+## License
+GPLv3
+
+## Contributions
+Contributions of new message types, bug fixes and general improvements via pull requests are welcome. Please ensure that code style matches that of the existing files.  

@@ -50,9 +50,9 @@ import {
 import { constructPropertiesKey } from '../../../utils';
 
 export class MsmHeaderInfo {
-    satelliteMask!: boolean[];
-    signalMask!: boolean[];
-    cellMask!: boolean[];
+    satelliteMask!: [number, number];
+    signalMask!: number;
+    cellMask!: number[];
 
     satelliteIds: number[] = [];
     signalIds: number[] = [];
@@ -88,43 +88,43 @@ export abstract class RtcmMessageMsm<T extends MsmSatelliteData<U>, U extends Ms
         this._satellites = [];
 
         // Read satellite mask
-        this.info.satelliteMask = s.readBitArray(64);
-        this.info.signalMask = s.readBitArray(32);
+        this._info.satelliteMask = [s.readUint32(), s.readUint32()];
+        this._info.signalMask = s.readUint32();
 
         // Extract ids
-        for (let i = 0; i < 64; i++) {
-            if (this.info.satelliteMask[i]) {
-                const satellite = new this.satelliteConstructor(<never>undefined);
-                (satellite as {id: number}).id = i + 1;
-                this._satellites.push(satellite);
-                this.info.satelliteIds.push(i + 1);
-            }
-        }
-        for (let i = 0; i < 32; i++) if (this.info.signalMask[i]) this.info.signalIds.push(i + 1);
-
-        // Read cell mask
-        this.info.cellMask = s.readBitArray(this.info.cellCount);
-
-        let cellMaskIndex = 0;
-        for (const satellite of this._satellites) {
-            const signals = [];
-            for (let j = 0; j < this.info.signalIds.length; j++) {
-                if (this.info.cellMask[cellMaskIndex++]) {
-                    const signal = new this.signalConstructor(<never>undefined);
-                    (signal as {id: number}).id = this.info.signalIds[j];
-                    signals.push(signal);
+        for (let m = 0; m < 1; m++) {
+            for (let i = 1; i <= 32; i++) {
+                const id = (m << 5) + i;
+                if ((this._info.satelliteMask[m] >> (32 - i)) & 0b1) {
+                    const satellite = new this.satelliteConstructor(<never>undefined);
+                    (satellite as {id: number}).id = id;
+                    this._satellites.push(satellite);
+                    this._info.satelliteIds.push(id);
                 }
             }
-            (satellite as {signals: readonly U[]}).signals = signals;
         }
+        for (let i = 1; i <= 32; i++) if ((this._info.signalMask >> (32 - i)) & 0b1) this._info.signalIds.push(i);
+
+        // Read cell mask
+        this._info.cellMask = [];
+        for (let i = 0; i < this._info.satelliteIds.length; i++) this._info.cellMask[i] = s.readBits(this._info.signalIds.length);
 
         // Read satellites
         for (const satellite of this._satellites) satelliteDecoder.run(satellite, s);
 
         // Read signals
-        for (const satellite of this._satellites)
-            for (const signal of satellite.signals)
-                signalDecoder.run(signal, s);
+        for (let i = 0; i < this._info.satelliteIds.length; i++) {
+            const signals = [];
+            for (let j = 0; j < this._info.signalIds.length; j++) {
+                if ((this._info.cellMask[i] >> (this._info.signalIds.length - j - 1)) & 0b1) {
+                    const signal = new this.signalConstructor(<never>undefined);
+                    (signal as {id: number}).id = this._info.signalIds[j];
+                    signalDecoder.run(signal, s);
+                    signals.push(signal);
+                }
+            }
+            (this.satellites[i] as {signals: readonly U[]}).signals = signals;
+        }
     }
 
     @CustomEncoder
@@ -133,9 +133,10 @@ export abstract class RtcmMessageMsm<T extends MsmSatelliteData<U>, U extends Ms
         const signalEncoder = getDecoderEncoder(this.signalConstructor).encoder;
 
         // Write satellite, signal and cell masks
-        s.writeBitArray(this.info.satelliteMask);
-        s.writeBitArray(this.info.signalMask);
-        s.writeBitArray(this.info.cellMask);
+        s.writeUint32(this._info.satelliteMask[0]);
+        s.writeUint32(this._info.satelliteMask[1]);
+        s.writeUint32(this._info.signalMask);
+        for (const cellMask of this._info.cellMask) s.writeBits(cellMask, this._info.signalIds.length);
 
         // Write satellites
         for (const satellite of this._satellites) {
@@ -150,37 +151,46 @@ export abstract class RtcmMessageMsm<T extends MsmSatelliteData<U>, U extends Ms
         }
     }
 
-    info: MsmHeaderInfo = new MsmHeaderInfo();
+    private _info: MsmHeaderInfo = new MsmHeaderInfo();
+    get info(): Readonly<MsmHeaderInfo> { return this._info; }
 
     private _satellites!: Readonly<T>[];
     get satellites(): readonly Readonly<T>[] { return this._satellites; }
     set satellites(satellites: readonly Readonly<T>[]) {
-        this._satellites = Array.from(satellites).sort((a, b) => a.id - b.id);
+        // Sort satellites by ID
+        this._satellites = Array.from(satellites)
+                .sort((a, b) => a.id - b.id);
 
+        // Create mask for satellite signals
         const satelliteSignalsMap = satellites.map(satellite =>
                 satellite.signals.reduce(
-                        (mask, signal) => mask | (0b1 << (signal.id - 1)), 0
-                )
+                        (mask, signal) => mask | (0b1 << (32 - signal.id)), 0
+                ) >>> 0
         );
-        const signalsMask = satelliteSignalsMap.reduce((mask, satelliteMask) => mask | satelliteMask);
 
-        this.info.satelliteMask = new Array(64).fill(false);
-        this.info.satelliteIds = satellites.map(satellite => satellite.id);
-        for (const satelliteId of this.info.satelliteIds) this.info.satelliteMask[satelliteId - 1] = true;
+        // Satellite mask
+        this._info.satelliteMask = [0, 0];
+        this._info.satelliteMask[0] = satellites.filter(satellite => satellite.id <= 32)
+                .reduce((mask, satellite) => mask | (0b1 << (32 - satellite.id)), 0) >>> 0;
+        this._info.satelliteMask[1] = satellites.filter(satellite => satellite.id > 32)
+                .reduce((mask, satellite) => mask | (0b1 << (64 - satellite.id)), 0) >>> 0;
 
-        this.info.signalMask = new Array(32).fill(false);
-        this.info.signalIds = [];
-        for (let i = 0; i < 32; i++) {
-            if (((signalsMask >> i) & 0b1) === 0) continue;
-            this.info.signalMask[i] = true;
-            this.info.signalIds.push(i + 1);
-        }
+        // Satellite ids
+        this._info.satelliteIds = this.satellites.map(satellite => satellite.id);
 
-        this.info.cellMask = new Array(this.info.cellCount);
-        let cellMaskIndex = 0;
-        for (const satelliteSignals of satelliteSignalsMap) {
-            for (const signalId of this.info.signalIds) {
-                this.info.cellMask[cellMaskIndex++] = ((satelliteSignals >> (signalId - 1)) & 0b1) === 1;
+        // Overall signal mask is the OR of each satellite signal mask
+        this._info.signalMask = satelliteSignalsMap.reduce((mask, satelliteMask) => mask | satelliteMask) >>> 0;
+
+        // Signal ids
+        this._info.signalIds = [];
+        for (let i = 1; i <= 32; i++) if (((this._info.signalMask >> (32 - i)) & 0b1) === 1) this._info.signalIds.push(i);
+
+        // Cell mask for each satellite
+        this._info.cellMask = new Array(satellites.length).fill(0);
+        for (let i = 0; i < satellites.length; i++) {
+            for (let j = 0; j < this._info.signalIds.length; j++) {
+                if (((satelliteSignalsMap[i] >> (32 - this._info.signalIds[j])) & 0b1) === 1)
+                    this.info.cellMask[i] |= 0b1 << (this._info.signalIds.length - j - 1);
             }
         }
     }

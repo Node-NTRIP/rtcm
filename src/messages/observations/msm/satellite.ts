@@ -32,6 +32,8 @@ import {
     Msm7SignalData,
     MsmSignalData
 } from './signal';
+import { RtcmTransport } from '../../../rtcm';
+import Exception = RtcmTransport.Exception;
 
 export abstract class MsmSatelliteData<T extends MsmSignalData> {
     readonly id!: number;

@@ -27,7 +27,6 @@ import {
     msmLockIndicatorToTime,
     msmLockTimeToIndicator
 } from '../common';
-import { Msm2SatelliteData, Msm3SatelliteData } from './satellite';
 import { SPEED_OF_LIGHT } from '../../../constants';
 
 export class MsmSignalData {

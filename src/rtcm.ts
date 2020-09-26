@@ -375,7 +375,7 @@ export const NavSystem = (version: RtcmNavSystem) => Reflect.metadata(navSystemM
  * Abstract RTCM message, containing properties common to all RTCM messages
  */
 @Since(RtcmVersion.V3_0)
-export class RtcmMessage {
+export abstract class RtcmMessage {
     static get decoderEncoder(): DecoderEncoder { return getDecoderEncoder(this); }
     static get sinceVersion(): RtcmVersion { return Reflect.getMetadata(sinceMetadataKey, this); }
     static get navSystem(): RtcmNavSystem | null { return Reflect.getMetadata(navSystemMetadataKey, this) ?? null; }

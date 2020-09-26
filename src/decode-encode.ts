@@ -68,19 +68,14 @@ export class DecoderEncoder {
     readonly encoder: Coder;
     readonly decoder: Coder;
 
-    readonly utf8Decoder: string;
-    readonly latin1Decoder: string;
+    static readonly utf8Decoder = Coder.define(new TextDecoder('utf8'));
+    static readonly latin1Decoder = Coder.define(new TextDecoder('latin1'));
 
-    readonly utf8Encoder: string;
+    static readonly utf8Encoder = Coder.define(new TextEncoder());
 
     constructor(private readonly parent?: DecoderEncoder) {
         this.encoder = new Coder(parent?.encoder);
         this.decoder = new Coder(parent?.decoder);
-
-        this.utf8Decoder = Coder.define(new TextDecoder('utf8'));
-        this.latin1Decoder = Coder.define(new TextDecoder('latin1'));
-
-        this.utf8Encoder = Coder.define(new TextEncoder());
     }
 
     skip(bits: number): void {
@@ -156,7 +151,7 @@ export class DecoderEncoder {
     }
 
     latin1(prop: any, lengthBits: number): void {
-        this.decoder.set(prop, `s.readString(s.readBits(${lengthBits}), ${this.latin1Decoder});`);
+        this.decoder.set(prop, `s.readString(s.readBits(${lengthBits}), ${DecoderEncoder.latin1Decoder});`);
 
         this.encoder.code(`{`,
                 `\ts.writeBits(o.${prop}.length, ${lengthBits});`,
@@ -172,11 +167,11 @@ export class DecoderEncoder {
     utf8(prop: any, charactersBits: number, lengthBits: number): void {
         this.decoder.code('{',
                 `\ts.index += ${charactersBits};`,
-                `\to.${prop} = s.readString(s.readBits(${lengthBits}), ${this.utf8Decoder});`,
+                `\to.${prop} = s.readString(s.readBits(${lengthBits}), ${DecoderEncoder.utf8Decoder});`,
         '}');
 
         this.encoder.code('{',
-                `\tlet encoded = ${this.utf8Encoder}.encode(o.${prop});`,
+                `\tlet encoded = ${DecoderEncoder.utf8Encoder}.encode(o.${prop});`,
                 `\ts.writeBits(o.${prop}.length, ${charactersBits});`,
                 `\ts.writeBits(encoded.length, ${lengthBits});`,
                 `\ts.writeBuffer(encoded);`,
@@ -194,8 +189,6 @@ export function getDecoderEncoder(target: any): DecoderEncoder {
 
     return Reflect.getMetadata(decoderEncoderKey, c) as DecoderEncoder;
 }
-
-type PropertyDecorator = (target: any, propertyKey: any, descriptor?: PropertyDescriptor) => void;
 
 function propertyDecorator(f: (decoderEncoder: DecoderEncoder, propertyKey: any) => void): PropertyDecorator {
     return (target: any, propertyKey: any): void => {

@@ -1,6 +1,6 @@
 {
   "name": "@gnss/rtcm",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "RTCM 3.3 decoder/encoder",
   "main": "build/index.js",
   "types": "build/index.d.ts",

@@ -98,7 +98,7 @@ export class RtcmDecodeTransformStream extends stream.Transform {
                     const potential = this.buffer.indexOf(RtcmTransport.SYNC_CHAR, 1);
 
                     // No potential RTCM message found, throw away the buffer contents and read from chunk again
-                    if (potential < 0) {
+                    if (potential < 0 || potential >= this.index) {
                         this.index = 0;
                         break;
                     }

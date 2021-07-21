@@ -22,7 +22,10 @@ buffer = buffer.slice(length); // Move to next message
 ```typescript
 let message = ...; // Message to be encoded
 let buffer: Buffer = Buffer.allocUnsafe(RtcmTransport.MAX_PACKET_SIZE);
-RtcmTransport.encode(message, buffer);
+let length: number; // Length of encoded message in bytes
+length = RtcmTransport.encode(message, buffer);
+// ...
+buffer = buffer.slice(0, length); // Encoded message
 ```
 
 ### Creating
